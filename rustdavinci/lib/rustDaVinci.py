@@ -592,6 +592,12 @@ class rustDaVinci():
         second_y_coord_of_eight = ctrl_y + (ctrl_h/1.9855)
         dist_btwn_y_coords_of_eight = second_y_coord_of_eight - first_y_coord_of_eight
 
+        # Calculate the distance between two items on a column of sixteen items (New Colors height)
+        # TODO Testing
+        first_y_coord_of_sixteen = ctrl_y + (ctrl_h/2.5214)
+        second_y_coord_of_sixteen = ctrl_y + (ctrl_h/2.3025)
+        dist_btwn_y_coords_of_sixteen = second_y_coord_of_sixteen - first_y_coord_of_sixteen
+
         # Set the point location of the remove & update buttons
         self.ctrl_remove = ((ctrl_x + (ctrl_w/2.7692)), (ctrl_y + (ctrl_h/19.5714)))
         self.ctrl_update = ((ctrl_x + (ctrl_w/1.5652)), (ctrl_y + (ctrl_h/19.5714)))
@@ -612,16 +618,10 @@ class rustDaVinci():
                                          (opacity * dist_btwn_x_coords_of_six_v2),
                                          (ctrl_y + (ctrl_h/3.0332))))
 
-        for row in range(8):
+        for row in range(16):
             for column in range(4):
-                if (row == 0 or row == 4) and column == 3: continue
-                if (row == 1 or row == 5) and (column == 2 or column == 3): continue
-                if row == 2 and column == 0: continue
-                if row == 3 and (column == 0 or column == 1): continue
-                if row == 6 and column == 2: continue
-                if row == 7 and (column == 1 or column == 2): continue
                 self.ctrl_color.append(  (first_x_coord_of_four + (column * dist_btwn_x_coords_of_four),
-                                         (first_y_coord_of_eight + (row * dist_btwn_y_coords_of_eight))))
+                                         (first_y_coord_of_sixteen + (row * dist_btwn_y_coords_of_sixteen))))
 
         # Hidden colors location
         if bool(self.settings.value("hidden_colors", default_settings["hidden_colors"])):
@@ -859,7 +859,7 @@ class rustDaVinci():
             if self.use_hidden_colors:
                 self.click_pixel(self.ctrl_color[color%64])
             else:
-                self.click_pixel(self.ctrl_color[color%20])
+                self.click_pixel(self.ctrl_color[color%64])
             time.sleep(self.ctrl_area_delay)
 
 

@@ -60,12 +60,13 @@ class Click_Color(QDialog):
                     self.append_color(color)
         else:
             if use_brush_opacities:
+                # TODO Reimplement Opacities.
                 for i, color in enumerate(rust_palette):
-                    if (i >= 0 and i <= 19) or (i >= 64 and i <= 83) or (i >= 128 and i <= 147) or (i >= 192 and i <= 211):
+                    if (i >= 0 and i <= 64) or (i >= 64 and i <= 83) or (i >= 128 and i <= 147) or (i >= 192 and i <= 211):
                         self.append_color(color)
             else:
                 for i, color in enumerate(rust_palette):
-                    if i == 20: break
+                    if i == 64: break
                     self.append_color(color)
 
 
