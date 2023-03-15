@@ -373,7 +373,7 @@ class Ui_SettingsUI(object):
         self.color_picker_PushButton.setToolTip(_translate("SettingsUI", "Use the color finder"))
         self.color_picker_PushButton.setText(_translate("SettingsUI", "..."))
         self.background_LineEdit.setToolTip(_translate("SettingsUI", "This is the set default background HEX color"))
-        self.background_LineEdit.setText(_translate("SettingsUI", "#ECF0F1"))
+        self.background_LineEdit.setText(_translate("SettingsUI", "#FFFFFF"))
         self.skip_colors_ListWidget.setToolTip(_translate("SettingsUI", "A list full of the colors that will be ignored when painting"))
         self.add_skip_color_PushButton.setToolTip(_translate("SettingsUI", "Add colors to the list of colors to ignore when painting"))
         self.add_skip_color_PushButton.setText(_translate("SettingsUI", "Add"))

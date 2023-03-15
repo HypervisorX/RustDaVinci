@@ -388,7 +388,7 @@
       <string>This is the set default background HEX color</string>
      </property>
      <property name="text">
-      <string>#ECF0F1</string>
+      <string>#FFFFFF</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>

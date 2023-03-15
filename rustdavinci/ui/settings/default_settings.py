@@ -10,7 +10,7 @@ default_settings = {
     "ctrl_w": 0,
     "ctrl_h": 0,
     "skip_background_color": 1,
-    "background_color": "#ECF0F1",
+    "background_color": "#FFFFFF",
     "skip_colors": [],
     "pause_key": "f10",
     "skip_key": "f11",
