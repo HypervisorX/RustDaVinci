@@ -344,8 +344,10 @@ class rustDaVinci():
                 palette = palette + (2, 2, 2) * 176
             else:
                 for i, color in enumerate(rust_palette):
-                    if i == 20:
-                        palette = palette + (2, 2, 2) * 236
+                    if i == 63:
+                        # The following line seems to break image loading when palette size changes
+                        # explaination/investigation required 
+                        palette = palette + (2, 2, 2) * 192
                         break
                     if i in background_opacities:
                         palette = palette + rgb_background
@@ -359,7 +361,7 @@ class rustDaVinci():
             if use_hidden_colors:
                 self.background_color = self.updated_palette.index(rgb_background) % 64
             else:
-                self.background_color = self.updated_palette.index(rgb_background) % 20
+                self.background_color = self.updated_palette.index(rgb_background) % 64
         else:
             self.background_color = None
 
@@ -849,7 +851,8 @@ class rustDaVinci():
             elif color >= 128 and color < 192: self.click_pixel(self.ctrl_opacity[3])
             elif color >= 192 and color < 256: self.click_pixel(self.ctrl_opacity[2])
         else:
-            if   color >= 0  and color < 20: self.click_pixel(self.ctrl_opacity[5])
+            if   color >= 0  and color < 64: self.click_pixel(self.ctrl_opacity[5])
+            # TODO cleanup
             elif color >= 20 and color < 40: self.click_pixel(self.ctrl_opacity[4])
             elif color >= 40 and color < 60: self.click_pixel(self.ctrl_opacity[3])
             elif color >= 60 and color < 80: self.click_pixel(self.ctrl_opacity[2])
@@ -892,7 +895,7 @@ class rustDaVinci():
                         bg_index = self.updated_palette.index(bg_color_rgb) % 20
                         bg_colors = [bg_index, bg_index+(20*1), bg_index+(20*2), bg_index+(20*3)]
                     else:
-                        bg_colors = [self.updated_palette.index(bg_color_rgb) % 20]
+                        bg_colors = [self.updated_palette.index(bg_color_rgb) % 64]
 
             self.skip_colors = self.skip_colors + bg_colors
 
