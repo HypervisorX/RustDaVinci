@@ -12,14 +12,14 @@ URL = "https://github.com/alexemanuelol/RustDaVinci"
 REQUIRED = [
     "Pillow==8.3.2",
     "PyAutoGUI==0.9.41",
-    "pypiwin32==223",
+    "pywin32==223",
     "colorama==0.4.1",
     "termcolor==1.1.0",
     "pynput==1.4.2",
     "numpy==1.16.2",
     "opencv-python==4.0.0.21",
     "pyqt5-tools==5.13.0.1.5",
-    "PyQt5==5.13.1"
+    "PyQt5==5.13.0"
 ]
 
 with open("README.md") as file:
@@ -39,6 +39,7 @@ setup(
     url=URL,
     license=license,
     install_requires=REQUIRED,
+    packages=['rustdavinci'],
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.7",
