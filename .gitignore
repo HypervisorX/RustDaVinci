@@ -147,3 +147,6 @@ tags
 
 # IDE settings
 .vscode/
+
+# ini file from draw_on_screenshot.py
+rustdavinci/screenshot.ini

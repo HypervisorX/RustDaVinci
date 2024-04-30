@@ -23,6 +23,7 @@ from lib.color_functions import hex_to_rgb, rgb_to_hex
 from ui.dialogs.captureDialog import CaptureAreaDialog
 from ui.settings.default_settings import default_settings
 
+# TODO: fix usage of casting boolean values from settings to use type="bool" instead of directly casting as bool("0") = TRUE
 
 class rustDaVinci():
 
@@ -295,7 +296,7 @@ class rustDaVinci():
 
     def update_palette(self, rgb_background):
         """  """
-        use_hidden_colors = bool(self.settings.value("hidden_colors", default_settings["hidden_colors"]))
+        use_hidden_colors = self.settings.value("hidden_colors", default_settings["hidden_colors"], type="bool")
         use_brush_opacities = bool(self.settings.value("brush_opacities", default_settings["brush_opacities"]))
 
         background_index = rust_palette.index(rgb_background)
@@ -512,7 +513,7 @@ class rustDaVinci():
             self.update()
 
 
-    def locate_control_area_opencv(self):
+    def locate_control_area_opencv(self, screenshot=None):
         """ Automatically tries to find the painting control area with opencv.
         Returns:    ctrl_x,
                     ctrl_y,
@@ -520,12 +521,16 @@ class rustDaVinci():
                     ctrl_h
                     False, if no control area was found
         """
-        screenshot = pyautogui.screenshot()
+        # Take screenshot if no optional screenshot was passed for testing.
+        if screenshot is None:
+            screenshot = pyautogui.screenshot()
+        else:
+            screenshot = Image.open(screenshot)
         screen_w, screen_h = screenshot.size
 
         image_gray = cv2.cvtColor(numpy.array(screenshot), cv2.COLOR_BGR2GRAY)
-
-        tmpl = cv2.imread("opencv_template/rust_palette_template.png", 0)
+        
+        tmpl = cv2.imread("opencv_template/rust_palette_template_before_10y_update.png", 0)
         tmpl_w, tmpl_h = tmpl.shape[::-1]
 
         x_coord, y_coord = 0, 0
@@ -626,7 +631,7 @@ class rustDaVinci():
                                          (first_y_coord_of_sixteen + (row * dist_btwn_y_coords_of_sixteen))))
 
         # Hidden colors location
-        if bool(self.settings.value("hidden_colors", default_settings["hidden_colors"])):
+        if self.settings.value("hidden_colors", default_settings["hidden_colors"], type="bool"):
             self.ctrl_color.append((ctrl_x + (ctrl_w/18.0000), ctrl_y + (ctrl_h/2.1518)))
             self.ctrl_color.append((ctrl_x + (ctrl_w/4.2353), ctrl_y + (ctrl_h/2.1406)))
             self.ctrl_color.append((ctrl_x + (ctrl_w/13.0909), ctrl_y + (ctrl_h/1.8430)))
@@ -878,7 +883,7 @@ class rustDaVinci():
         skip_background_color = bool(self.settings.value("skip_background_color", default_settings["skip_background_color"]))
         if skip_background_color:
             bg_color_rgb = hex_to_rgb(self.settings.value("background_color", default_settings["background_color"]))
-            use_hidden_colors = bool(self.settings.value("hidden_colors", default_settings["hidden_colors"]))
+            use_hidden_colors = self.settings.value("hidden_colors", default_settings["hidden_colors"], type="bool")
             use_opacities = bool(self.settings.value("brush_opacities", default_settings["brush_opacities"]))
 
             bg_colors = []
@@ -905,7 +910,7 @@ class rustDaVinci():
     def start_painting(self):
         """ Start the painting """
         # Update global variables
-        self.use_hidden_colors =    bool(self.settings.value("hidden_colors", default_settings["hidden_colors"]))
+        self.use_hidden_colors =    self.settings.value("hidden_colors", default_settings["hidden_colors"], type="bool")
         self.pause_key =            str(self.settings.value("pause_key", default_settings["pause_key"])).lower()
         self.skip_key =             str(self.settings.value("skip_key", default_settings["skip_key"])).lower()
         self.abort_key =            str(self.settings.value("abort_key", default_settings["abort_key"])).lower()
