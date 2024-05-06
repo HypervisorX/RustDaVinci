@@ -136,7 +136,7 @@ class CanvasController:
     PUBLIC METHODS
     """
 
-    def update_controls_coordinates(self, controls: List[str] = [], force: bool = False) -> Tuple[List[str], List[str]]:
+    def update_controls_coordinates(self, controls: List[str] = [], force: bool = False, alternative_screenshot: np.ndarray = None) -> Tuple[List[str], List[str]]:
         """
         Update canvas controls coordinates and save them to config.json.
 
@@ -144,6 +144,7 @@ class CanvasController:
             controls (List[str]): A list containing all controls that should be updated. If empty, all controls
                                   will be updated if needed.
             force (bool): Should coordinates be forcefully updated?
+            alternative_screenshot (np.ndarray): screenshot image to use instead of taking live screenshot. intended for testing
 
         Returns:
             Tuple[List[str], List[str]]: First list contain updated controls, second list contain controls that
@@ -152,7 +153,12 @@ class CanvasController:
         updated, failed = [], []
 
         config = self._read_config()
-        screenshot = self._get_screenshot(True)
+
+        # Take screenshot unless alternative_screenshot provided
+        if alternative_screenshot is None:
+            screenshot = self._get_screenshot(True)
+        else:
+            screenshot = alternative_screenshot
 
         if len(controls) != 0:
             temp = []
