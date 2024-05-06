@@ -224,6 +224,15 @@ class CanvasController:
         return True
 
 
+    def reset_canvas_template_coordinates(self):
+        """
+        Resets all stored coordinates to None.
+        """
+        config = self._read_config()
+        for template, threshold in TEMPLATES:
+            config['canvas_controls_template_coordinates'][template] = None
+        self._write_config(config)
+
     def click_button(self, button: Buttons) -> bool:
         """
         Performs a click action on a specific button within the application interface.
