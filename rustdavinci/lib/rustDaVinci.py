@@ -59,11 +59,12 @@ class rustDaVinci():
         self.abort = False
 
         # Painting control tools
-        self.ctrl_remove = 0
-        self.ctrl_update = 0
-        self.ctrl_size = []
+        self.ctrl_remove = (0,0)
+        self.ctrl_update = (0,0)
+        self.ctrl_size = (0,0)
+        self.ctrl_spacing = (0,0)
+        self.ctrl_opacity = (0,0)
         self.ctrl_brush = []
-        self.ctrl_opacity = []
         self.ctrl_color = []
         self.current_ctrl_size = None
         self.current_ctrl_brush = None
@@ -111,6 +112,7 @@ class rustDaVinci():
         # Update the pyautogui delay
         pyautogui.PAUSE = self.click_delay
 
+        # TODO use any on values
         if int(self.settings.value("ctrl_w", default_settings["ctrl_w"])) == 0 or int(self.settings.value("ctrl_h", default_settings["ctrl_h"])) == 0:
             self.parent.ui.paint_image_PushButton.setEnabled(False)
         elif self.org_img_ok and int(self.settings.value("ctrl_w", default_settings["ctrl_w"])) != 0 and int(self.settings.value("ctrl_h", default_settings["ctrl_h"])) != 0:
@@ -250,7 +252,6 @@ class rustDaVinci():
         os.remove("temp_high.png")
 
         self.org_img_ok = True
-
 
     def convert_img(self):
         """ Convert the image to fit the canvas and quantize the image.
@@ -482,10 +483,18 @@ class rustDaVinci():
 
         self.update()
 
-
+    def format_coordinates(self, coordinates, name=None) -> str:
+        coords = (f'{name if name else ""}Coordinates:\nX =\t\t{coordinates["x"]}\n'
+            f'Y =\t\t{coordinates["y"]}\n'
+            f'Width =\t{coordinates["w"]}\n'
+            f'Height =\t{coordinates["h"]}\n\n')
+        return coords
+    
     def locate_control_area_automatically(self):
         """"""
         self.parent.hide()
+        # TODO switch off using screenshot
+        # ctrl_area = self.locate_control_area_opencv("opencv_template/rust_example_screenshot.png")
         ctrl_area = self.locate_control_area_opencv()
         self.parent.show()
 
@@ -496,30 +505,22 @@ class rustDaVinci():
             msg.exec_()
         else:
             btn = QMessageBox.question(self.parent, None,
-                "Coordinates:\n" +
-                "X =\t\t" + str(ctrl_area [0]) + "\n" +
-                "Y =\t\t" + str(ctrl_area [1]) + "\n" +
-                "Width =\t" + str(ctrl_area [2]) + "\n" +
-                "Height =\t" + str(ctrl_area [3]) + "\n\n" +
-                "Would you like to update the painting controls area coordinates?",
+                (self.format_coordinates(ctrl_area['tools'], "tools") +
+                self.format_coordinates(ctrl_area['colour'], "colour") +
+                "Would you like to update the painting controls area coordinates?"),
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
             if btn == QMessageBox.Yes:
                 self.parent.ui.log_TextEdit.append("Controls area position updated...")
-                self.settings.setValue("ctrl_x", str(ctrl_area[0]))
-                self.settings.setValue("ctrl_y", str(ctrl_area[1]))
-                self.settings.setValue("ctrl_w", str(ctrl_area[2]))
-                self.settings.setValue("ctrl_h", str(ctrl_area[3]))
-
+                self.update_detected_locations(ctrl_area)
             self.update()
 
 
     def locate_control_area_opencv(self, screenshot=None):
         """ Automatically tries to find the painting control area with opencv.
-        Returns:    ctrl_x,
-                    ctrl_y,
-                    ctrl_w,
-                    ctrl_h
-                    False, if no control area was found
+        Returns:    returns ['x'], ['y'], ['w'], ['h'] for each area
+                    areas are tools and colours
+                    template['colour']['x'], template['colour']['y'], ....
+                    returns False, if a control area was not found
         """
         # Take screenshot if no optional screenshot was passed for testing.
         if screenshot is None:
@@ -529,8 +530,58 @@ class rustDaVinci():
         screen_w, screen_h = screenshot.size
 
         image_gray = cv2.cvtColor(numpy.array(screenshot), cv2.COLOR_BGR2GRAY)
+
+        template = {
+            "colour" : {
+                "img" : cv2.imread('opencv_template/template_colour.png', cv2.IMREAD_GRAYSCALE),
+                "x" : 0, "y" : 0, "w" : 1, "h" : 1, "confidence": 0.0
+            },
+            "tools" : {
+                "img" : cv2.imread('opencv_template/template_tools.png', cv2.IMREAD_GRAYSCALE),
+                "x" : 0, "y" : 0, "w" : 1, "h" : 1, "confidence": 0.0
+            }
+        }
+
+        assert template['colour']['img'] is not None, "colour template file could not be read, check with os.path.exists()"
+        assert template['tools']['img'] is not None, "tools template file could not be read, check with os.path.exists()"
+
+        for t_name, t_item in template.items():
+            
+            t_image = t_item['img']
+            w, h = t_image.shape[::-1]
+            #method = eval(meth)
+            method = cv2.TM_CCOEFF_NORMED
+            # Apply template Matching
+            res = cv2.matchTemplate(image_gray,t_image,method)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+            # confidence on accuracy, using only normalized methods so 1.0 is 100%
+            confidence = max_val
+            
+            # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum value and update confidence
+            if method in [cv2.TM_SQDIFF, cv2.TM_SQDIFF_NORMED]:
+                top_left = min_loc
+                confidence = 1-min_val
+            else:
+                top_left = max_loc
+            bottom_right = (top_left[0] + w, top_left[1] + h)
+
+            t_item['x'] = top_left[0]
+            t_item['y'] = top_left[1]
+            t_item['w'] = w
+            t_item['h'] = h
+            t_item['confidence'] = confidence
+
+            # get rid of img, no longer needed
+            t_item.pop('img')
+            
+            # minimum accuracy threshold all areas must meet
+            if confidence < 0.8:
+                return False
         
-        tmpl = cv2.imread("opencv_template/rust_palette_template_before_10y_update.png", 0)
+        return template
+
+        """"
+        tmpl = cv2.imread("opencv_template/rust_palette_template.png", cv2.IMREAD_GRAYSCALE)
         tmpl_w, tmpl_h = tmpl.shape[::-1]
 
         x_coord, y_coord = 0, 0
@@ -553,8 +604,23 @@ class rustDaVinci():
             tmpl_w, tmpl_h = int(tmpl.shape[1]*1.035), int(tmpl.shape[0]*1.035)
             tmpl = cv2.resize(tmpl, (int(tmpl_w), int(tmpl_h)))
 
-            if tmpl_w > screen_w or tmpl_h > screen_h or loop == 49: return False
+            if tmpl_w > screen_w or tmpl_h > screen_h or loop == 49: return False"""
+    
+    
+    """This calculates the coordinate offsets given a starting point and width/height plus a scaling factor.
+    By default the offset will be calculated as a distance from the origin, If the scaling factor is negative, 
+    the offset will be calculated from the endpoint towards the origin. """
+    def calculate_offset(self, origin, endpoint_distance, scaling_factor):
+        if scaling_factor > 0:
+            return origin + (endpoint_distance/scaling_factor)
+        else:
+            return origin + endpoint_distance + (endpoint_distance/scaling_factor)
 
+    """This updates the stored settings of locations when passed the dictionary of positions"""
+    def update_detected_locations(self, positions):   
+        for area_name, area_value in positions.items():
+            for key_name, key_value in area_value.items():
+                self.settings.setValue(f"ctrl_{area_name}_{key_name}", str(key_value))
 
     def calculate_ctrl_tools_positioning(self):
         """ This function calculates the positioning of the different controls in the painting control area.
@@ -567,64 +633,87 @@ class rustDaVinci():
                     self.ctrl_color
         """
         # Reset
-        self.ctrl_remove = 0
-        self.ctrl_update = 0
-        self.ctrl_size = []
+        self.ctrl_remove = (0,0)
+        self.ctrl_update = (0,0)
+        self.ctrl_size = (0,0)
+        self.ctrl_spacing = (0,0)
+        self.ctrl_opacity = (0,0)
         self.ctrl_brush = []
-        self.ctrl_opacity = []
         self.ctrl_color = []
+        self.ctrl_tool = []
+        self.ctrl_tools_x = 0
+        self.ctrl_tools_y = 0
+        self.ctrl_tools_w = 0
+        self.ctrl_tools_h = 0
+        self.ctrl_colour_x = 0
+        self.ctrl_colour_y = 0
+        self.ctrl_colour_w = 0
+        self.ctrl_colour_h = 0
+
+        # TODO find all ctrl_x/y/w/h references and ensure they are updated with 
+        # new split locations for tools and colours
 
         ctrl_x = int(self.settings.value("ctrl_x", default_settings["ctrl_x"]))
         ctrl_y = int(self.settings.value("ctrl_y", default_settings["ctrl_y"]))
         ctrl_w = int(self.settings.value("ctrl_w", default_settings["ctrl_w"]))
         ctrl_h = int(self.settings.value("ctrl_h", default_settings["ctrl_h"]))
 
-        # Calculate the distance between two items on a row of six items (Size)
-        first_x_coord_of_six_v1 = ctrl_x + (ctrl_w/6.5454)
-        second_x_coord_of_six_v1 = ctrl_x + (ctrl_w/3.4285)
-        dist_btwn_x_coords_of_six_v1 = second_x_coord_of_six_v1 - first_x_coord_of_six_v1
+        ctrl_colour_x = int(self.settings.value("ctrl_colour_x", default_settings["ctrl_colour_x"]))
+        ctrl_colour_y = int(self.settings.value("ctrl_colour_y", default_settings["ctrl_colour_y"]))
+        ctrl_colour_w = int(self.settings.value("ctrl_colour_w", default_settings["ctrl_colour_w"]))
+        ctrl_colour_h = int(self.settings.value("ctrl_colour_h", default_settings["ctrl_colour_h"]))
+        ctrl_tools_x = int(self.settings.value("ctrl_tools_x", default_settings["ctrl_tools_x"]))
+        ctrl_tools_y = int(self.settings.value("ctrl_tools_y", default_settings["ctrl_tools_y"]))
+        ctrl_tools_w = int(self.settings.value("ctrl_tools_w", default_settings["ctrl_tools_w"]))
+        ctrl_tools_h = int(self.settings.value("ctrl_tools_h", default_settings["ctrl_tools_h"]))
 
-        # Calculate the distance between two items on a row of six items (Opacity)
-        first_x_coord_of_six_v2 = ctrl_x + (ctrl_w/7.5789)
-        second_x_coord_of_six_v2 = ctrl_x + (ctrl_w/3.5555)
-        dist_btwn_x_coords_of_six_v2 = second_x_coord_of_six_v2 - first_x_coord_of_six_v2
+        # Calculate the distance between two items on a row of six items (paint, eraser, dropper tools)
+        first_x_coord_of_three = self.calculate_offset(ctrl_tools_x, ctrl_tools_w, 2.75)
+        second_x_coord_of_three = self.calculate_offset(ctrl_tools_x, ctrl_tools_w, 2.0)
+        dist_btwn_x_coords_of_three = second_x_coord_of_three - first_x_coord_of_three
+
+        # Calculate the distance between two items on a row of seven items (Brushes)
+        first_x_coord_of_seven = self.calculate_offset(ctrl_tools_x, ctrl_tools_w, 9.34)
+        second_x_coord_of_seven = self.calculate_offset(ctrl_tools_x, ctrl_tools_w, 4.13)
+        dist_btwn_x_coords_of_seven = second_x_coord_of_seven - first_x_coord_of_seven
 
         # Calculate the distance between two items on a row of four items (Colors width)
-        first_x_coord_of_four = ctrl_x + (ctrl_w/6)
-        second_x_coord_of_four = ctrl_x + (ctrl_w/2.5714)
+        first_x_coord_of_four = self.calculate_offset(ctrl_colour_x, ctrl_colour_w, 6.57)
+        second_x_coord_of_four = self.calculate_offset(ctrl_colour_x, ctrl_colour_w, 2.61)
         dist_btwn_x_coords_of_four = second_x_coord_of_four - first_x_coord_of_four
 
-        # Calculate the distance between two items on a column of eight items (Colors height)
-        first_y_coord_of_eight = ctrl_y + (ctrl_h/2.3220)
-        second_y_coord_of_eight = ctrl_y + (ctrl_h/1.9855)
-        dist_btwn_y_coords_of_eight = second_y_coord_of_eight - first_y_coord_of_eight
-
         # Calculate the distance between two items on a column of sixteen items (New Colors height)
-        # TODO Testing
-        first_y_coord_of_sixteen = ctrl_y + (ctrl_h/2.5214)
-        second_y_coord_of_sixteen = ctrl_y + (ctrl_h/2.3025)
+        # TODO multi resolution testing
+        first_y_coord_of_sixteen = self.calculate_offset(ctrl_colour_y, ctrl_colour_h, 6.66)
+        second_y_coord_of_sixteen = self.calculate_offset(ctrl_colour_y, ctrl_colour_h, 4.92)
         dist_btwn_y_coords_of_sixteen = second_y_coord_of_sixteen - first_y_coord_of_sixteen
 
-        # Set the point location of the remove & update buttons
+        # size text box
+        self.ctrl_size = (self.calculate_offset(ctrl_tools_x, ctrl_tools_w, -7.88),self.calculate_offset(ctrl_tools_y, ctrl_tools_h, -3.39))
+
+        # spacing text box
+        self.ctrl_spacing = (self.calculate_offset(ctrl_tools_x, ctrl_tools_w, -7.88),self.calculate_offset(ctrl_tools_y, ctrl_tools_h, -5.38))
+
+        # opacity text box
+        self.ctrl_opacity = (self.calculate_offset(ctrl_tools_x, ctrl_tools_w, -7.88),self.calculate_offset(ctrl_tools_y, ctrl_tools_h, -12.9))
+
+        # TODO Set the point location of the remove & update buttons
         self.ctrl_remove = ((ctrl_x + (ctrl_w/2.7692)), (ctrl_y + (ctrl_h/19.5714)))
         self.ctrl_update = ((ctrl_x + (ctrl_w/1.5652)), (ctrl_y + (ctrl_h/19.5714)))
 
+        # TODO update to use text boxes for brush size and opacity
+        for brush in range(7):
+            self.ctrl_brush.append(( first_x_coord_of_seven +
+                                     (brush * dist_btwn_x_coords_of_seven),
+                                     (ctrl_tools_y + (ctrl_tools_h/1.74))))
 
-        for size in range(6):
-            self.ctrl_size.append((  first_x_coord_of_six_v1 +
-                                     (size * dist_btwn_x_coords_of_six_v1),
-                                     (ctrl_y + (ctrl_h/6.9661))))
+        # paint brush, eraser, dropper tools
+        for tool in range(3):
+            self.ctrl_tool.append((   first_x_coord_of_three +
+                                         (tool * dist_btwn_x_coords_of_three),
+                                         (ctrl_tools_y + (ctrl_tools_h/4.45))))
 
-        for brush in range(4):
-            self.ctrl_brush.append(( first_x_coord_of_four +
-                                     (brush * dist_btwn_x_coords_of_four),
-                                     (ctrl_y + (ctrl_h/4.2371))))
-
-        for opacity in range(6):
-            self.ctrl_opacity.append((   first_x_coord_of_six_v2 +
-                                         (opacity * dist_btwn_x_coords_of_six_v2),
-                                         (ctrl_y + (ctrl_h/3.0332))))
-
+        # colors
         for row in range(16):
             for column in range(4):
                 self.ctrl_color.append(  (first_x_coord_of_four + (column * dist_btwn_x_coords_of_four),
@@ -778,6 +867,7 @@ class rustDaVinci():
             self.prefer_lines = False
             self.estimated_time = est_time_click
 
+    # TODO define click that passes on to pyautogui white handling tuple/x,y and checks for double click
 
     def click_pixel(self, x = 0, y = 0):
         """ Click the pixel """
@@ -789,6 +879,15 @@ class rustDaVinci():
             pyautogui.click(x, y)
             if self.use_double_click:
                 pyautogui.click(x, y)
+
+    def write_value(self, value: str, x=0, y=0):
+        if isinstance(x, tuple):
+            x, y = x[0], x[1]
+        pyautogui.click(x, y)
+        pyautogui.write(value)
+        pyautogui.press('return')
+        time.sleep(self.ctrl_area_delay)
+
 
 
     def draw_line(self, point_A, point_B):
@@ -837,30 +936,59 @@ class rustDaVinci():
             self.parent.show()
         self.parent.activateWindow()
 
+    # TODO update to not use translation logic between old index based method and new numerical interface
+    def choose_old_size(self, size: int):
+        """
+        translation logic to go between old size based index and new numerical/slider version.
+
+        :param size: int
+        """
+        assert size in range(6), f"size index must be int 0-5, got: {size}"
+        
+        # TODO testing to get numbers similar to old sizes
+        # numerical equivalent to old size indicies
+        size_equivalent = (1,3,5,9,17,32)
+        self.write_value(str(size_equivalent[size]), self.ctrl_size)
+
+        
+    # TODO update to not use translation logic between old index based method and new numerical interface
+    def choose_old_opacity(self, opacity: int):
+        """
+        translation logic to go between old size based index and new numerical/slider version.
+
+        :param size: int
+        """
+        assert opacity in range(6), f"opacity index must be int 0-5, got: {opacity}"
+        
+        # TODO testing to get numbers similar to old values
+        # numerical equivalent to old size indicies
+        opacity_equivalent = (0.10, 0.20, 0.40, 0.60, 0.80, 1.0)
+        self.write_value(str(opacity_equivalent[opacity]), self.ctrl_opacity)
 
     def choose_painting_controls(self, size, brush, color):
-        """ Choose the paint controls """
+        """ Choose the paint controls
+        Numbers for size brush and color are the index for ctrl_(size|brush|color) """
         if self.current_ctrl_size != size:
             self.current_ctrl_size = size
-            self.click_pixel(self.ctrl_size[size])
-            time.sleep(self.ctrl_area_delay)
-
+            self.choose_old_size(size)
+            
         if self.current_ctrl_brush != brush:
             self.current_ctrl_brush = brush
             self.click_pixel(self.ctrl_brush[brush])
             time.sleep(self.ctrl_area_delay)
 
+
+        # TODO switch to new version of opacity
         if self.use_hidden_colors:
-            if   color >= 0  and color < 64: self.click_pixel(self.ctrl_opacity[5])
-            elif color >= 64 and color < 128: self.click_pixel(self.ctrl_opacity[4])
-            elif color >= 128 and color < 192: self.click_pixel(self.ctrl_opacity[3])
-            elif color >= 192 and color < 256: self.click_pixel(self.ctrl_opacity[2])
+            if   color >= 0  and color < 64: self.choose_old_opacity(5)
+            elif color >= 64 and color < 128: self.choose_old_opacity(4)
+            elif color >= 128 and color < 192: self.choose_old_opacity(3)
+            elif color >= 192 and color < 256: self.choose_old_opacity(2)
         else:
-            if   color >= 0  and color < 64: self.click_pixel(self.ctrl_opacity[5])
-            # TODO cleanup
-            elif color >= 20 and color < 40: self.click_pixel(self.ctrl_opacity[4])
-            elif color >= 40 and color < 60: self.click_pixel(self.ctrl_opacity[3])
-            elif color >= 60 and color < 80: self.click_pixel(self.ctrl_opacity[2])
+            if   color >= 0  and color < 64: self.choose_old_opacity(5)
+            elif color >= 20 and color < 40: self.choose_old_opacity(4)
+            elif color >= 40 and color < 60: self.choose_old_opacity(3)
+            elif color >= 60 and color < 80: self.choose_old_opacity(2)
         time.sleep(self.ctrl_area_delay)
 
         if self.current_ctrl_color != color:
@@ -896,6 +1024,7 @@ class rustDaVinci():
                     else:
                         bg_colors = [self.updated_palette.index(bg_color_rgb) % 64]
                 else:
+                    # TODO fix 20/64
                     if use_opacities:
                         bg_index = self.updated_palette.index(bg_color_rgb) % 20
                         bg_colors = [bg_index, bg_index+(20*1), bg_index+(20*2), bg_index+(20*3)]
@@ -917,10 +1046,13 @@ class rustDaVinci():
 
         # Update local variables
         minimum_line_width =    int(self.settings.value("minimum_line_width", default_settings["minimum_line_width"]))
+        
+        # TODO determing why ctrl_ values were not used here
         ctrl_x =                int(self.settings.value("ctrl_x", default_settings["ctrl_x"]))
         ctrl_y =                int(self.settings.value("ctrl_h", default_settings["ctrl_y"]))
         ctrl_w =                int(self.settings.value("ctrl_w", default_settings["ctrl_w"]))
         ctrl_h =                int(self.settings.value("ctrl_h", default_settings["ctrl_h"]))
+
         brush_type =            int(self.settings.value("brush_type", default_settings["brush_type"]))
         use_brush_opacities =   bool(self.settings.value("brush_opacities", default_settings["brush_opacities"]))
         hide_preview_paint =    bool(self.settings.value("hide_preview_paint", default_settings["hide_preview_paint"]))
@@ -983,9 +1115,9 @@ class rustDaVinci():
         self.hotkey_label.show()
 
         # Paint the background with the default background color
-        self.click_pixel(self.ctrl_size[0]) # To set focus on the rust window
+        self.choose_old_size(0) # To set focus on the rust window
         time.sleep(.5)
-        self.click_pixel(self.ctrl_size[0])
+        self.choose_old_size(0)
         if bool(self.settings.value("paint_background", default_settings["paint_background"])) and self.background_color != None:
             self.parent.ui.log_TextEdit.append("Painting background for you...")
             self.choose_painting_controls(5, 3, self.background_color)
