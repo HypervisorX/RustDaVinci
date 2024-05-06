@@ -168,7 +168,9 @@ class CanvasController:
 
         for control, threshold in controls:
             if force or config['canvas_controls_template_coordinates'][control] is None:
-                match = self._identify_template(self._get_template_path(control), screenshot, threshold)
+                template_path = self._get_template_path(control)
+                mask_path = self._get_template_mask_path(control)
+                match = self._identify_template(template_path, screenshot, threshold, mask_path)
                 if match != None:
                     config['canvas_controls_template_coordinates'][control] = match
                     updated.append(control)
@@ -704,9 +706,26 @@ class CanvasController:
         template_path = os.path.join(current_dir, '..', '..', 'templates', f'{template}.png')
         return template_path
 
+    def _get_template_mask_path(self, template: str) -> str | None:
+        """
+        Get the path of a template image mask if it exists.
+        Assumes if {template}_mask.png exists in template directory, that is the mask.
+
+        Args:
+            template (str): The template name.
+
+        Returns:
+            str: The complete path to the template image, or None if it does not exist.
+        """
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        mask_path = os.path.join(current_dir, '..', '..', 'templates', f'{template}_mask.png')
+
+        # if mask_path exists return it, otherwise return None
+        return mask_path if os.path.exists(mask_path) else None
+
 
     def _identify_template(self, template_path: str, screenshot: np.ndarray,
-                           threshold: float = .8) -> Optional[Tuple[int, int, int, int]]:
+                           threshold: float = .8, mask_path: str = None) -> Optional[Tuple[int, int, int, int]]:
         """
         Identify the template in the screenshot and return coordinates of the first match.
 
@@ -722,12 +741,16 @@ class CanvasController:
         # Read the template image and convert to grayscale
         template = cv2.imread(template_path)
         template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
-
+        
         # Get the dimensions of the template image
         width, height = template_gray.shape[::-1]
 
+        
+        # Load mask if provided
+        template_mask = None if mask_path is None else cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+        
         # Perform template matching
-        result = cv2.matchTemplate(screenshot, template_gray, cv2.TM_CCOEFF_NORMED)
+        result = cv2.matchTemplate(screenshot, template_gray, cv2.TM_CCOEFF_NORMED, mask=template_mask)
 
         # Get locations with a match above the threshold
         locations = np.where(result >= threshold)
