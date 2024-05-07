@@ -5,3 +5,4 @@ keyboard==0.13.5
 requests==2.31.0
 pynput==1.7.6
 pypiwin32==223
+matplotlib==3.8
