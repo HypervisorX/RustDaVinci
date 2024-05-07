@@ -100,7 +100,7 @@ class PlotOnScreenshot:
 
    def test_sample_screenshots(self):
       # directory with sample screenshot images
-      samples = Path("screenshots", "test-images")
+      samples = Path("..", "screenshots", "test-images")
 
       #filename pattern
       regex = r'(?P<width>[0-9]{2,4})x(?P<height>[0-9]{2,4}).png'
@@ -120,5 +120,5 @@ class PlotOnScreenshot:
                self.annotate_screenshot(file)                  
 
 plotter = PlotOnScreenshot()
-plotter.annotate_screenshot("screenshots/test-images/1920x1080.png")
+plotter.annotate_screenshot("../screenshots/test-images/1920x1080.png")
 #plotter.test_sample_screenshots()
